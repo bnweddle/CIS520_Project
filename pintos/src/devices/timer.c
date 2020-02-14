@@ -17,6 +17,9 @@
 #error TIMER_FREQ <= 1000 recommended
 #endif
 
+// List of sleeping processes //
+static struct list sleep_list;
+
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
@@ -37,6 +40,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,11 +93,27 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
-
+  printf("check 1");
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  printf("check 2");
+  if(ticks <= 0) {
+  printf("check 3");
+    return;
+  }
+  printf("check 4");
+  enum intr_level old_level = intr_disable();
+  printf("check 5");
+  thread_current()->ticks = timer_ticks() + ticks;
+  printf("check 6");
+  list_insert_ordered(&sleep_list, &thread_current()->elem, (list_less_func *) &cmp_ticks, NULL);
+  printf("check 7");
+  thread_block();
+  printf("check 8");
+  intr_set_level(old_level);
+  printf("check 9");
+
+//while (timer_elapsed (start) < ticks) 
+//   thread_yield ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -172,6 +192,19 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  struct list_elem *e = list_begin(&sleep_list);
+  while (e != list_end(&sleep_list))
+    {
+      struct thread *t = list_entry(e, struct thread, elem);      
+      if (ticks < t->ticks)
+	{
+	  break;
+	}
+      list_remove(e); // remove from sleep list
+      thread_unblock(t); // Unblock and add to ready list
+      e = list_begin(&sleep_list);
+   }
+    //test_max_priority(); // Tests if thread still has max priority
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
