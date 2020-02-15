@@ -71,7 +71,11 @@ sema_down (struct semaphore *sema)
        if(!thread_mlfqs){
           donate_priority();
        }
+     // -- defunct code --
      // list_push_back (&sema->waiters, &thread_current ()->elem);
+     // -- defunct code --
+
+     // insert thread into queue based on priority order
       list_insert_ordered(&sema->waiters, &thread_current ()->elem, (list_less_func *) &cmp_priority, NULL);
       thread_block ();
     }
@@ -92,6 +96,7 @@ sema_try_down (struct semaphore *sema)
 
   ASSERT (sema != NULL);
 
+  // atomically attempt to decrement semaphore
   old_level = intr_disable ();
   if (sema->value > 0) 
     {
@@ -116,17 +121,17 @@ sema_up (struct semaphore *sema)
 
   ASSERT (sema != NULL);
 
+  // atomically sort ready queue
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) {
     list_sort(&sema->waiters, (list_less_func *) &cmp_priority, NULL);
     thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
   }
-sema->value++;
-if (!intr_context())
-    {
-      test_max_priority();
-    }
-intr_set_level (old_level);
+  sema->value++;
+  if (!intr_context()) {
+    test_max_priority();
+  }
+  intr_set_level (old_level);
 }
 
 static void sema_test_helper (void *sema_);
@@ -281,7 +286,7 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
+
 /* One semaphore in a list. */
 struct semaphore_elem 
   {
@@ -362,8 +367,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
     {
       list_sort(&cond->waiters, (list_less_func *) &cmp_sem_priority,
 		NULL);
-      sema_up (&list_entry (list_pop_front (&cond->waiters),
-			    struct semaphore_elem, elem)->semaphore);
+      sema_up (&list_entry (list_pop_front (&cond->waiters), struct semaphore_elem, elem)->semaphore);
     }
 }
 
@@ -389,7 +393,7 @@ bool cmp_sem_priority (const struct list_elem *a,
 {
   struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
   struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
-  // Get semaphore with highest waiter priority
+  // Return semaphore with highest priority waiting theread
   if ( list_empty(&sb->semaphore.waiters) )
     {
       return true;
