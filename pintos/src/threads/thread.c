@@ -526,8 +526,8 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->donations);
 
   // Added for BSD scheduler
-  t->nice = NICE_DEFAULT;
-  t->recent_cpu = RECENT_CPU_DEFAULT;
+//  t->nice = NICE_DEFAULT;
+//  t->recent_cpu = RECENT_CPU_DEFAULT;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
