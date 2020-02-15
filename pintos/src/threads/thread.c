@@ -225,6 +225,9 @@ enum intr_level old_level;
   /* Add to run queue. */
   thread_unblock (t);
 
+  old_level = intr_disable ();
+  test_max_priority();
+  intr_set_level (old_level);
   return tid;
 }
 
@@ -333,7 +336,12 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+   // list_push_back (&ready_list, &cur->elem);
+    {
+      list_insert_ordered(&ready_list, &cur->elem,
+			  (list_less_func *) &cmp_priority,
+			  NULL);
+    }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
