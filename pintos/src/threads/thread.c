@@ -384,10 +384,29 @@ bool cmp_priority(const struct list_elem *a, const struct list_elem *b,
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
+
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  if (thread_mlfqs)
+    {
+      return;
+    }
+  enum intr_level old_level = intr_disable ();
+  int old_priority = thread_current()->priority;
+  thread_current ()->init_priority = new_priority;
+  refresh_priority();
+  // If new priority is greater, donate it
+  if (old_priority < thread_current()->priority)
+    {
+      donate_priority();
+    }
+  // If new priority is less, test if the processor should be yielded
+  if (old_priority > thread_current()->priority)
+    {
+      test_max_priority();
+    }
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
