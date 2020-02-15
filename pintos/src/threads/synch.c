@@ -205,8 +205,21 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  enum intr_level old_level = intr_disable();
+
+  if (!thread_mlfqs && lock->holder)
+    {
+      thread_current()->wait_on_lock = lock;
+      list_insert_ordered(&lock->holder->donations,
+			  &thread_current()->donation_elem,
+			  (list_less_func *) &cmp_priority, NULL);
+    }
+
   sema_down (&lock->semaphore);
+
+  thread_current()->wait_on_lock = NULL;
   lock->holder = thread_current ();
+  intr_set_level(old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -223,9 +236,14 @@ lock_try_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!lock_held_by_current_thread (lock));
 
+  enum intr_level old_level = intr_disable();
   success = sema_try_down (&lock->semaphore);
   if (success)
-    lock->holder = thread_current ();
+    {
+      thread_current()->wait_on_lock = NULL;
+      lock->holder = thread_current ();
+    }
+  intr_set_level(old_level);
   return success;
 }
 
@@ -240,8 +258,17 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+  enum intr_level old_level = intr_disable();
   lock->holder = NULL;
+  if (!thread_mlfqs)
+    {
+      remove_with_lock(lock);
+      // ^ Removes threads from donation list waiting for released lock
+      refresh_priority();
+      // ^ Updates priority
+    }
   sema_up (&lock->semaphore);
+  intr_set_level (old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -265,6 +292,11 @@ struct semaphore_elem
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
    code to receive the signal and act upon it. */
+
+bool cmp_sem_priority(const struct list_elem *a,
+		       const struct list_elem *b,
+		       void *aux UNUSED);
+
 void
 cond_init (struct condition *cond)
 {
@@ -302,9 +334,10 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
-  
+
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  list_insert_ordered (&cond->waiters, &waiter.elem,
+		       (list_less_func *) &cmp_sem_priority, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -326,8 +359,12 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters)) 
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
+    {
+      list_sort(&cond->waiters, (list_less_func *) &cmp_sem_priority,
+		NULL);
+      sema_up (&list_entry (list_pop_front (&cond->waiters),
+			    struct semaphore_elem, elem)->semaphore);
+    }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
@@ -344,4 +381,34 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+}
+
+bool cmp_sem_priority (const struct list_elem *a,
+		       const struct list_elem *b,
+		       void *aux UNUSED)
+{
+  struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
+  struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
+  // Get semaphore with highest waiter priority
+  if ( list_empty(&sb->semaphore.waiters) )
+    {
+      return true;
+    }
+  if ( list_empty(&sa->semaphore.waiters) )
+    {
+      return false;
+    }
+  list_sort(&sa->semaphore.waiters, (list_less_func *) &cmp_priority,
+	    NULL);
+  list_sort(&sb->semaphore.waiters, (list_less_func *) &cmp_priority,
+	    NULL);
+  struct thread *ta = list_entry(list_front(&sa->semaphore.waiters),
+				 struct thread, elem);
+  struct thread *tb = list_entry(list_front(&sb->semaphore.waiters),
+				 struct thread, elem);
+  if (ta->priority > tb->priority)
+    {
+      return true;
+    }
+  return false;
 }
