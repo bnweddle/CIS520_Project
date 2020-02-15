@@ -691,3 +691,19 @@ void donate_priority (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void remove_with_lock(struct lock *lock)
+{
+  struct list_elem *e = list_begin(&thread_current()->donations);
+  struct list_elem *next;
+  while (e != list_end(&thread_current()->donations))
+    {
+      struct thread *t = list_entry(e, struct thread, donation_elem);
+      next = list_next(e);
+      if (t->wait_on_lock == lock)
+	{
+	  list_remove(e);
+	}
+      e = next;
+    }
+}
