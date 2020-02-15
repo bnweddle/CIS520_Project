@@ -344,6 +344,19 @@ bool cmp_ticks (const struct list_elem *a, const struct list_elem *b,
 
 }
 
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b,
+		  void *aux UNUSED)
+{
+   struct thread *ta = list_entry(a, struct thread, elem);
+   struct thread *tb = list_entry(b, struct thread, elem);
+   if(ta->priority > tb->priority)
+   {
+      return true;
+   }
+
+   return false;
+
+}
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
