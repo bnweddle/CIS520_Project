@@ -146,11 +146,11 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-bool cmp_ticks (const struct list_elem *a, const struct list_elem *b,
+bool compare_ticks (const struct list_elem *a, const struct list_elem *b,
 		    void *aux UNUSED);
-bool cmp_priority (const struct list_elem *a, const struct list_elem *b,
+bool compare_priority (const struct list_elem *a, const struct list_elem *b,
 		     void *aux UNUSED);
-void test_max_priority (void);
+void maximum_priority (void);
 
 void donate_priority (void);
 void remove_with_lock(struct lock *lock);
