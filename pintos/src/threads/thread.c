@@ -15,17 +15,8 @@
 #include "userprog/process.h"
 #endif
 
-//CHANGES ARE BELOW
-#define NICE_DEFAULT 0
-#define NICE_MAX 20
-#define NICE_MIN 20
-
-#define RECENT_CPU_DEFAULT 0
-
-#define LOAD_AVG_DEFAULT 0
-
+//Search deoth for priority conflicts to resolve with donation
 #define DONATION_DEPTH 8
-//CHANGES ARE ABOVE
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -70,10 +61,6 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
-
-//CHANGES ARE BELOW
-int load_avg;
-//CHANGES ARE ABOVE
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -125,10 +112,6 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
-
-//CHANGES ARE BELOW
-load_avg = LOAD_AVG_DEFAULT;
-//CHANGES ARE ABOVE
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -192,9 +175,8 @@ thread_create (const char *name, int priority,
   struct switch_threads_frame *sf;
   tid_t tid;
 
-//CHANGES ARE BELOW
-enum intr_level old_level;
-//CHANGES ARE ABOVE
+//To save the state for restoring later
+enum intr_level prev_level;
 
   ASSERT (function != NULL);
 
@@ -225,9 +207,9 @@ enum intr_level old_level;
   /* Add to run queue. */
   thread_unblock (t);
 
-  old_level = intr_disable ();
-  test_max_priority();
-  intr_set_level (old_level);
+  prev_level = intr_disable ();
+  maximum_priority_test();
+  intr_set_level (prev_level);
   return tid;
 }
 
@@ -258,16 +240,16 @@ thread_block (void)
 void
 thread_unblock (struct thread *t) 
 {
-  enum intr_level old_level;
+  enum intr_level prev_level;
 
   ASSERT (is_thread (t));
 
-  old_level = intr_disable ();
+  prev_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
  // list_push_back (&ready_list, &t->elem);
   list_insert_ordered(&ready_list, &t->elem, (list_less_func *) &cmp_priority, NULL);
   t->status = THREAD_READY;
-  intr_set_level (old_level);
+  intr_set_level (prev_level);
 }
 
 /* Returns the name of the running thread. */
@@ -330,11 +312,11 @@ void
 thread_yield (void) 
 {
   struct thread *cur = thread_current ();
-  enum intr_level old_level;
+  enum intr_level prev_level;
   
   ASSERT (!intr_context ());
 
-  old_level = intr_disable ();
+  prev_level = intr_disable ();
   if (cur != idle_thread) 
    // list_push_back (&ready_list, &cur->elem);
     {
@@ -344,7 +326,7 @@ thread_yield (void)
     }
   cur->status = THREAD_READY;
   schedule ();
-  intr_set_level (old_level);
+  intr_set_level (prev_level);
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -364,12 +346,12 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-bool cmp_ticks (const struct list_elem *a, const struct list_elem *b,
+bool compare_ticks (const struct list_elem *one, const struct list_elem *two,
 		void *aux UNUSED)
 {
-   struct thread *ta = list_entry(a, struct thread, elem);
-   struct thread *tb = list_entry(b, struct thread, elem);
-   if(ta->ticks < tb->ticks)
+   struct thread *threadone = list_entry(one, struct thread, elem);
+   struct thread *threadtwo = list_entry(two, struct thread, elem);
+   if(threadone->ticks < threadtwo->ticks)
    { 
       return true;
    }
@@ -393,14 +375,13 @@ bool cmp_priority(const struct list_elem *a, const struct list_elem *b,
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 
-void
-thread_set_priority (int new_priority) 
+void thread_set_priority (int new_priority) 
 {
   if (thread_mlfqs)
     {
       return;
     }
-  enum intr_level old_level = intr_disable ();
+  enum intr_level prev_level = intr_disable ();
   int old_priority = thread_current()->priority;
   thread_current ()->init_priority = new_priority;
   refresh_priority();
@@ -412,18 +393,18 @@ thread_set_priority (int new_priority)
   // If new priority is less, test if the processor should be yielded
   if (old_priority > thread_current()->priority)
     {
-      test_max_priority();
+      maximum_priority_test();
     }
-  intr_set_level (old_level);
+  intr_set_level (prev_level);
 }
 
 /* Returns the current thread's priority. */
 int 
 thread_get_priority (void) 
 {
-  enum intr_level old_level = intr_disable ();
+  enum intr_level prev_level = intr_disable ();
   int tmp = thread_current()->priority;
-  intr_set_level (old_level);
+  intr_set_level (prev_level);
   return tmp;
 }
 
@@ -533,7 +514,7 @@ is_thread (struct thread *t)
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
-  enum intr_level old_level;
+  enum intr_level prev_level;
 
   ASSERT (t != NULL);
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
@@ -546,9 +527,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
-  old_level = intr_disable ();
+  prev_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
-  intr_set_level (old_level);
+  intr_set_level (prev_level);
 
 // Added initializations for priority donation
   t->init_priority = priority;
@@ -670,18 +651,18 @@ allocate_tid (void)
   return tid;
 }
 
-void test_max_priority (void)
+void maximum_priority_test (void)
 {
   if ( list_empty(&ready_list) )
     {
       return;
     }
-  struct thread *t = list_entry(list_front(&ready_list),
+  struct thread *thread = list_entry(list_front(&ready_list),
 				struct thread, elem);
   if (intr_context())
     {
       thread_ticks++;
-      if ( thread_current()->priority < t->priority ||
+      if ( thread_current()->priority < thread->priority ||
 	   (thread_ticks >= TIME_SLICE &&
 	    thread_current()->priority == t->priority) )
 	{
@@ -689,7 +670,7 @@ void test_max_priority (void)
 	}
       return;
     }
-  if (thread_current()->priority < t->priority)
+  if (thread_current()->priority < thread->priority)
     {
       thread_yield();
     }
