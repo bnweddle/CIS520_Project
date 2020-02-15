@@ -96,6 +96,11 @@ struct thread
     struct list_elem sleep_elem;
     int64_t ticks;
 
+    /* variables used for priority tests */
+    int init_priority;
+    struct lock *wait_on_lock;
+    struct list donations;
+    struct list_elem donation_elem;
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -145,5 +150,7 @@ bool cmp_ticks (const struct list_elem *a, const struct list_elem *b,
 		    void *aux UNUSED);
 bool cmp_priority (const struct list_elem *a, const struct list_elem *b,
 		     void *aux UNUSED);
-void test_max_priority (void); 
+void test_max_priority (void);
+
+void donate_priority (void);
 #endif /* threads/thread.h */
