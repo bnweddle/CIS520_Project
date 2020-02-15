@@ -15,6 +15,18 @@
 #include "userprog/process.h"
 #endif
 
+//CHANGES ARE BELOW
+#define NICE_DEFAULT 0
+#define NICE_MAX 20
+#define NICE_MIN 20
+
+#define RECENT_CPU_DEFAULT 0
+
+#define LOAD_AVG_DEFAULT 0
+
+#define DEPTH_LIMIT 8
+//CHANGES ARE ABOVE
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -58,6 +70,10 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+
+//CHANGES ARE BELOW
+int load_avg;
+//CHANGES ARE ABOVE
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -109,6 +125,10 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
+
+//CHANGES ARE BELOW
+load_avg = LOAD_AVG_DEFAULT;
+//CHANGES ARE ABOVE
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -171,6 +191,10 @@ thread_create (const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
+
+//CHANGES ARE BELOW
+enum intr_level old_level;
+//CHANGES ARE ABOVE
 
   ASSERT (function != NULL);
 

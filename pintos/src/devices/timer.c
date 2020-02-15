@@ -179,6 +179,7 @@ timer_print_stats (void)
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
 
+/* 
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
@@ -212,8 +213,13 @@ timer_interrupt (struct intr_frame *args UNUSED)
       thread_unblock(t); // Unblock and add to ready list
       e = list_begin(&sleep_list);
    }
+<<<<<<< HEAD
     test_max_priority(); // Tests if thread still has max priority
+=======
+  // test_max_priority(); // Tests if thread still has max priority
+>>>>>>> 91f88dabba4c1456caeb7805b0e9bb69f61ab8bd
 }
+
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */
