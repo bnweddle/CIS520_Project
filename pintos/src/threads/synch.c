@@ -269,7 +269,7 @@ lock_release (struct lock *lock)
     {
       remove_with_lock(lock);
       // ^ Removes threads from donation list waiting for released lock
-      refresh_priority();
+      update_priority();
       // ^ Updates priority
     }
   sema_up (&lock->semaphore);

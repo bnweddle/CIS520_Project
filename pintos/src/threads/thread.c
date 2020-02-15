@@ -166,8 +166,7 @@ thread_print_stats (void)
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
 tid_t
-thread_create (const char *name, int priority,
-               thread_func *function, void *aux) 
+thread_create (const char *name, int priority, thread_func *function, void *aux) 
 {
   struct thread *t;
   struct kernel_thread_frame *kf;
@@ -311,22 +310,19 @@ thread_exit (void)
 void
 thread_yield (void) 
 {
-  struct thread *cur = thread_current ();
+  struct thread *cur = thread_current();
   enum intr_level prev_level;
   
   ASSERT (!intr_context ());
 
   prev_level = intr_disable ();
   if (cur != idle_thread) 
-   // list_push_back (&ready_list, &cur->elem);
     {
-      list_insert_ordered(&ready_list, &cur->elem,
-			  (list_less_func *) &compare_priority,
-			  NULL);
+      list_insert_ordered(&ready_list, &cur->elem,(list_less_func *) &compare_priority,NULL);
     }
   cur->status = THREAD_READY;
-  schedule ();
-  intr_set_level (prev_level);
+  schedule();
+  intr_set_level(prev_level);
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -346,8 +342,7 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-bool compare_ticks (const struct list_elem *one, const struct list_elem *two,
-		void *aux UNUSED)
+bool compare_ticks (const struct list_elem *one, const struct list_elem *two,void *aux UNUSED)
 {
    struct thread *threadone = list_entry(one, struct thread, elem);
    struct thread *threadtwo = list_entry(two, struct thread, elem);
@@ -356,11 +351,9 @@ bool compare_ticks (const struct list_elem *one, const struct list_elem *two,
       return true;
    }
    return false;
-
 }
 
-bool compare_priority(const struct list_elem *a, const struct list_elem *b,
-		  void *aux UNUSED)
+bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
    struct thread *ta = list_entry(a, struct thread, elem);
    struct thread *tb = list_entry(b, struct thread, elem);
@@ -368,13 +361,14 @@ bool compare_priority(const struct list_elem *a, const struct list_elem *b,
    {
       return true;
    }
-
    return false;
-
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
-
+//Takes the threads previous priority and sets it to its current priority then
+//takes the threads current threads initial priority and sets it the new priority
+//After updating the priority it checks if previous priority is less than the current priority,
+//if it is, we donate it. If previous priority is greater than the current priority, we test if 
+//the processor should be yield
 void thread_set_priority (int new_priority) 
 {
   if (thread_mlfqs)
@@ -382,16 +376,14 @@ void thread_set_priority (int new_priority)
       return;
     }
   enum intr_level prev_level = intr_disable ();
-  int old_priority = thread_current()->priority;
+  int prev_priority = thread_current()->priority;
   thread_current ()->init_priority = new_priority;
-  refresh_priority();
-  // If new priority is greater, donate it
-  if (old_priority < thread_current()->priority)
+  update_priority();
+  if (prev_priority < thread_current()->priority)
     {
       donate_priority();
     }
-  // If new priority is less, test if the processor should be yielded
-  if (old_priority > thread_current()->priority)
+  if (prev_priority > thread_current()->priority)
     {
       maximum_priority_test();
     }
@@ -676,6 +668,8 @@ void maximum_priority_test (void)
     }
 }
 
+//If a thread with a lock has a lower priority than the current thread, we set the 
+//lock's priority to the current threads priority so it moves up in the queue+
 void donate_priority (void)
 {
   int depth = 0;
@@ -703,6 +697,7 @@ void donate_priority (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
+//Removes threads from the donor list that are waiting on locks
 void remove_with_lock(struct lock *lock)
 {
   struct list_elem *e = list_begin(&thread_current()->donations);
@@ -719,7 +714,9 @@ void remove_with_lock(struct lock *lock)
     }
 }
 
-void refresh_priority (void)
+//Sets the current threads priority to its initial priority and then and 
+//grabs a donor thread and gives its priority to the current thread
+void update_priority (void)
 {
   struct thread *t = thread_current();
   t->priority = t->init_priority;
