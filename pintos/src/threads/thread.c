@@ -342,6 +342,8 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+//Takes two threads and returns true if the first threads ticks are less than the seconds's
+//Returns false otherwise
 bool compare_ticks (const struct list_elem *one, const struct list_elem *two,void *aux UNUSED)
 {
    struct thread *threadone = list_entry(one, struct thread, elem);
@@ -353,11 +355,13 @@ bool compare_ticks (const struct list_elem *one, const struct list_elem *two,voi
    return false;
 }
 
-bool compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+//Takes two threads and returns true if the first threads priority is less than the seconds's
+//Returns false otherwise
+bool compare_priority(const struct list_elem *one, const struct list_elem *two, void *aux UNUSED)
 {
-   struct thread *ta = list_entry(a, struct thread, elem);
-   struct thread *tb = list_entry(b, struct thread, elem);
-   if(ta->priority > tb->priority)
+   struct thread *threadone = list_entry(one, struct thread, elem);
+   struct thread *threadtwo = list_entry(two, struct thread, elem);
+   if(threadone->priority > threadtwo->priority)
    {
       return true;
    }
@@ -643,6 +647,8 @@ allocate_tid (void)
   return tid;
 }
 
+//If the currently running threads priority is lower it yeilds the CPU to the first thread in the 
+//ready list
 void maximum_priority_test (void)
 {
   if ( list_empty(&ready_list) )

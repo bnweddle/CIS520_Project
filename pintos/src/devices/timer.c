@@ -20,7 +20,7 @@
 #endif
 
 // List of sleeping processes //
-static struct list sleep_list;
+static struct list sleeping;
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
@@ -42,7 +42,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  list_init(&sleep_list);
+  list_init(&sleeping);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -101,7 +101,7 @@ timer_sleep (int64_t ticks)
   }
   enum intr_level old_level = intr_disable();
   thread_current()->ticks = timer_ticks() + ticks;
-  list_insert_ordered(&sleep_list, &thread_current()->elem, (list_less_func *) &compare_ticks, NULL);
+  list_insert_ordered(&sleeping, &thread_current()->elem, (list_less_func *) &compare_ticks, NULL);
   thread_block();
   intr_set_level(old_level);
 
@@ -187,8 +187,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
 
-  struct list_elem *e = list_begin(&sleep_list);
-  while (e != list_end(&sleep_list))
+  struct list_elem *e = list_begin(&sleeping);
+  while (e != list_end(&sleeping))
     {
       struct thread *t = list_entry(e, struct thread, elem);      
       if (ticks < t->ticks)
@@ -197,7 +197,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 	}
       list_remove(e); // remove from sleep list
       thread_unblock(t); // Unblock and add to ready list
-      e = list_begin(&sleep_list);
+      e = list_begin(&sleeping);
    }
     maximum_priority_test(); // Tests if thread still has max priority
 }
