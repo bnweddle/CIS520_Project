@@ -247,7 +247,7 @@ thread_unblock (struct thread *t)
   prev_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
  // list_push_back (&ready_list, &t->elem);
-  list_insert_ordered(&ready_list, &t->elem, (list_less_func *) &cmp_priority, NULL);
+  list_insert_ordered(&ready_list, &t->elem, (list_less_func *) &compare_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (prev_level);
 }
@@ -321,7 +321,7 @@ thread_yield (void)
    // list_push_back (&ready_list, &cur->elem);
     {
       list_insert_ordered(&ready_list, &cur->elem,
-			  (list_less_func *) &cmp_priority,
+			  (list_less_func *) &compare_priority,
 			  NULL);
     }
   cur->status = THREAD_READY;
@@ -359,7 +359,7 @@ bool compare_ticks (const struct list_elem *one, const struct list_elem *two,
 
 }
 
-bool cmp_priority(const struct list_elem *a, const struct list_elem *b,
+bool compare_priority(const struct list_elem *a, const struct list_elem *b,
 		  void *aux UNUSED)
 {
    struct thread *ta = list_entry(a, struct thread, elem);
@@ -664,7 +664,7 @@ void maximum_priority_test (void)
       thread_ticks++;
       if ( thread_current()->priority < thread->priority ||
 	   (thread_ticks >= TIME_SLICE &&
-	    thread_current()->priority == t->priority) )
+	    thread_current()->priority == thread->priority) )
 	{
 	  intr_yield_on_return();
 	}

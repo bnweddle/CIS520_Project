@@ -101,7 +101,7 @@ timer_sleep (int64_t ticks)
   }
   enum intr_level old_level = intr_disable();
   thread_current()->ticks = timer_ticks() + ticks;
-  list_insert_ordered(&sleep_list, &thread_current()->elem, (list_less_func *) &cmp_ticks, NULL);
+  list_insert_ordered(&sleep_list, &thread_current()->elem, (list_less_func *) &compare_ticks, NULL);
   thread_block();
   intr_set_level(old_level);
 
@@ -199,7 +199,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
       thread_unblock(t); // Unblock and add to ready list
       e = list_begin(&sleep_list);
    }
-    test_max_priority(); // Tests if thread still has max priority
+    maximum_priority_test(); // Tests if thread still has max priority
 }
 
 
