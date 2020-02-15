@@ -519,6 +519,15 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+
+// Added initializations for priority donation
+  t->init_priority = priority;
+  t->wait_on_lock = NULL;
+  list_init(&t->donations);
+
+  // Added for BSD scheduler
+  t->nice = NICE_DEFAULT;
+  t->recent_cpu = RECENT_CPU_DEFAULT;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
