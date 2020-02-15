@@ -237,7 +237,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+ // list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, (list_less_func *) &cmp_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -592,7 +593,32 @@ allocate_tid (void)
 
   return tid;
 }
-
+
+void test_max_priority (void)
+{
+  if ( list_empty(&ready_list) )
+    {
+      return;
+    }
+  struct thread *t = list_entry(list_front(&ready_list),
+				struct thread, elem);
+  if (intr_context())
+    {
+      thread_ticks++;
+      if ( thread_current()->priority < t->priority ||
+	   (thread_ticks >= TIME_SLICE &&
+	    thread_current()->priority == t->priority) )
+	{
+	  intr_yield_on_return();
+	}
+      return;
+    }
+  if (thread_current()->priority < t->priority)
+    {
+      thread_yield();
+    }
+}
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);

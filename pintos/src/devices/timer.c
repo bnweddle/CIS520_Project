@@ -10,6 +10,8 @@
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
+#define RECALC_FREQ 4
+
 #if TIMER_FREQ < 19
 #error 8254 timer requires TIMER_FREQ >= 19
 #endif
@@ -93,24 +95,15 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  printf("check 1");
   ASSERT (intr_get_level () == INTR_ON);
-  printf("check 2");
   if(ticks <= 0) {
-  printf("check 3");
     return;
   }
-  printf("check 4");
   enum intr_level old_level = intr_disable();
-  printf("check 5");
   thread_current()->ticks = timer_ticks() + ticks;
-  printf("check 6");
   list_insert_ordered(&sleep_list, &thread_current()->elem, (list_less_func *) &cmp_ticks, NULL);
-  printf("check 7");
   thread_block();
-  printf("check 8");
   intr_set_level(old_level);
-  printf("check 9");
 
 //while (timer_elapsed (start) < ticks) 
 //   thread_yield ();
@@ -192,6 +185,21 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+//if (thread_mlfqs)
+//    {
+//      mlfqs_increment();
+//      if (ticks % TIMER_FREQ == 0)
+//	{
+//	  mlfqs_load_avg();
+//	  mlfqs_recalc(); // Recalcs recent_cpu and priority
+//	}
+//      if (ticks % RECALC_FREQ == 0)
+//	{
+//	  mlfqs_priority(thread_current());
+//	}
+//    }
+
   struct list_elem *e = list_begin(&sleep_list);
   while (e != list_end(&sleep_list))
     {
@@ -204,7 +212,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
       thread_unblock(t); // Unblock and add to ready list
       e = list_begin(&sleep_list);
    }
-    //test_max_priority(); // Tests if thread still has max priority
+    test_max_priority(); // Tests if thread still has max priority
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
