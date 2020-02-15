@@ -24,7 +24,7 @@
 
 #define LOAD_AVG_DEFAULT 0
 
-#define DEPTH_LIMIT 8
+#define DONATION_DEPTH 8
 //CHANGES ARE ABOVE
 
 /* Random value for struct thread's `magic' member.
@@ -653,6 +653,29 @@ void test_max_priority (void)
   if (thread_current()->priority < t->priority)
     {
       thread_yield();
+    }
+}
+
+void donate_priority (void)
+{
+  int depth = 0;
+  struct thread *t = thread_current();
+  struct lock *l = t->wait_on_lock;
+  while (l && depth < DONATION_DEPTH)
+    {
+      depth++;
+      // If lock is not being held, return
+      if (!l->holder)
+	{
+	  return;
+	}
+      if (l->holder->priority >= t->priority)
+	{
+	  return;
+	}
+      l->holder->priority = t->priority;
+      t = l->holder;
+      l = t->wait_on_lock;
     }
 }
 
