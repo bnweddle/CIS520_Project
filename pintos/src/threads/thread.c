@@ -410,10 +410,13 @@ thread_set_priority (int new_priority)
 }
 
 /* Returns the current thread's priority. */
-int
+int 
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  enum intr_level old_level = intr_disable ();
+  int tmp = thread_current()->priority;
+  intr_set_level (old_level);
+  return tmp;
 }
 
 /* Sets the current thread's nice value to NICE. */
