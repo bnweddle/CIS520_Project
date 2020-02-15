@@ -154,4 +154,5 @@ void test_max_priority (void);
 
 void donate_priority (void);
 void remove_with_lock(struct lock *lock);
+void refresh_priority(void);
 #endif /* threads/thread.h */

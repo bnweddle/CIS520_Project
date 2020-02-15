@@ -707,3 +707,19 @@ void remove_with_lock(struct lock *lock)
       e = next;
     }
 }
+
+void refresh_priority (void)
+{
+  struct thread *t = thread_current();
+  t->priority = t->init_priority;
+  if (list_empty(&t->donations))
+    {
+      return;
+    }
+  struct thread *s = list_entry(list_front(&t->donations),
+				struct thread, donation_elem);
+  if (s->priority > t->priority)
+    {
+      t->priority = s->priority;
+    }
+}
